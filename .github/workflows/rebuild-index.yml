@@ -6,7 +6,8 @@ name: Rebuild index
 # schedule as a catch-up so a missed dispatch can't strand the catalog,
 # and can be kicked manually from the Actions UI.
 #
-# Thin passthrough to the versioned action — nothing to configure here.
+# Thin passthrough to the vendored workflow (_logos-rebuild-index.yml,
+# see .github/VENDORED.md) — nothing to configure here.
 
 on:
   workflow_dispatch: {}
@@ -21,4 +22,4 @@ permissions:
 
 jobs:
   rebuild:
-    uses: gateway-fm/logos-modules-release-action/.github/workflows/rebuild-index.yml@f7014156f8c48c0088eb504ef9cfb635a81a4aa6 # v1 + pinned actions
+    uses: ./.github/workflows/_logos-rebuild-index.yml # vendored, see .github/VENDORED.md

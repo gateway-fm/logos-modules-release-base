@@ -1,0 +1,106 @@
+# VENDORED from logos-co/setup-nix-cache-action, action.yml at v1.2.0
+# (781f072). MIT OR Apache-2.0, see LICENSE-MIT and LICENSE-APACHE beside
+# this file. Changes are listed in .github/VENDORED.md.
+name: 'Setup Logos Nix cache'
+description: >
+  Install Nix with the self-hosted Logos Attic binary cache
+  (cache.nix.logos.co) preconfigured, and publish what the job builds:
+  master pushes to the public cache, every other ref to the ci cache.
+  See status-im/infra-ci#263 for the cache design.
+
+branding:
+  icon: 'layers'
+  color: 'blue'
+
+inputs:
+  attic-endpoint:
+    description: >
+      Attic endpoint. The default is the Logos cache; override only for
+      testing against a different Attic deployment.
+    required: false
+    default: 'https://cache.nix.logos.co'
+  attic-token-ci:
+    description: >
+      Token for the ci cache; pass secrets.ATTIC_TOKEN_CI (repo-wide). Used
+      for every ref except master/main.
+    required: false
+    default: ''
+  attic-token-public:
+    description: >
+      Token for the public cache; pass secrets.ATTIC_TOKEN_PUBLIC. It only
+      exists in the public-cache environment, so the calling job must enter
+      that environment on master (see README for the environment expression)
+      — outside it the secret resolves to empty and master pushes are
+      skipped rather than failing.
+    required: false
+    default: ''
+  cache:
+    description: >
+      Cache to publish to. Default: public on master/main, ci otherwise.
+    required: false
+    default: ''
+  install-nix:
+    description: >
+      Install Nix via cachix/install-nix-action. Set 'false' if the workflow
+      installs Nix itself — then configure the substituters there (see README).
+    required: false
+    default: 'true'
+  extra-nix-config:
+    description: Extra lines appended to the Nix config at install time.
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    # Both caches are public to read, so the substituters belong here,
+    # credential-free: fork PRs and any other run without secrets still pull.
+    - name: Install Nix
+      if: inputs.install-nix == 'true'
+      uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31
+      with:
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+          extra-substituters = https://cache.nix.logos.co/public https://cache.nix.logos.co/ci
+          extra-trusted-public-keys = public:l4HrXgL4nw246+LBh2SOJyhz64BoGegOYLheT/iIAPU= ci:aVJqjS4NWX5WfqHO0AEhIScjGu/JyK5FoydPrnEbMvc=
+          fallback = true
+          ${{ inputs.extra-nix-config }}
+
+    - name: Select Attic cache and token
+      id: select
+      shell: bash
+      env:
+        IS_DEFAULT_BRANCH: ${{ (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && 'true' || 'false' }}
+        CACHE_OVERRIDE: ${{ inputs.cache }}
+        TOKEN_CI: ${{ inputs.attic-token-ci }}
+        TOKEN_PUBLIC: ${{ inputs.attic-token-public }}
+      run: |
+        if [ "$IS_DEFAULT_BRANCH" = "true" ]; then
+          cache="${CACHE_OVERRIDE:-public}"; token="$TOKEN_PUBLIC"
+        else
+          cache="${CACHE_OVERRIDE:-ci}"; token="$TOKEN_CI"
+        fi
+        echo "cache=$cache" >> "$GITHUB_OUTPUT"
+        echo "token=$token" >> "$GITHUB_OUTPUT"
+
+    - name: Add Attic bin to PATH
+      if: steps.select.outputs.token != '' && inputs.attic-endpoint != ''
+      shell: bash
+      run: |
+        if command -v attic >/dev/null 2>&1; then
+          echo "attic already on PATH: $(command -v attic)"
+          exit 0
+        fi
+        bin="$(nix --extra-experimental-features 'nix-command flakes' build --no-link --print-out-paths \
+          'github:NixOS/nixpkgs/nixpkgs-unstable#attic-client')/bin"
+        echo "$bin" >> "$GITHUB_PATH"
+
+    # Publishing only; reading is covered by the substituters above. Runs as a
+    # post step at the end of the job, pushing the store paths the job built.
+    - name: Setup Attic push
+      if: steps.select.outputs.token != '' && inputs.attic-endpoint != ''
+      uses: ryanccn/attic-action@5635a15ef0c5462194ffbd05d1daeddc74625c3a # v0.5.0
+      with:
+        endpoint: ${{ inputs.attic-endpoint }}
+        cache: ${{ steps.select.outputs.cache }}
+        token: ${{ steps.select.outputs.token }}

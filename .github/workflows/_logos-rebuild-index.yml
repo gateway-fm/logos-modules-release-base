@@ -1,0 +1,201 @@
+# VENDORED from logos-co/logos-modules-release-action, .github/workflows/rebuild-index.yml
+# at v1 (bbdc52871dc4305c8007923e1b08738ad2dd6b50). MIT. Do not edit here beyond
+# what .github/VENDORED.md lists; update by re-copying from upstream.
+name: Rebuild index.json
+
+# Reusable workflow that aggregates every per-module release into a single
+# rolling `index.json` and uploads it to the `index` release tag.
+#
+# Triggered automatically by the `release.yml` workflow after a successful
+# publication. Can also be invoked manually (workflow_dispatch) or on a
+# schedule (catch-up after a missed dispatch).
+#
+# The index is built by `logos-co/logos-modules-release-tool`'s `index.py`
+# — the single source of truth for the index.json format. The CI flow here
+# collects every release's `.lgx` asset URL, hands them to `index.py build`,
+# and uploads the result. Catalog maintainers running `index.py` locally
+# produce byte-compatible output, so the GitHub-Actions path and the
+# off-GitHub path stay in lockstep.
+
+on:
+  workflow_call:
+    inputs:
+      runner:
+        description: |
+          Runner for the rebuild: a label, or a JSON array of labels.
+          Blank means ubuntu-latest.
+        type: string
+        default: ""
+  # Vendoring change: upstream also declares workflow_dispatch,
+  # repository_dispatch and schedule here. In the upstream repository they
+  # are inert for consumers; in this repository they would fire a second,
+  # competing rebuild next to rebuild-index.yml, which already owns the
+  # same three triggers. Removed.
+
+# Serialize rebuilds per consumer repo. An umbrella "release all"
+# fans out N per-module releases, each firing a `rebuild-index`
+# repository_dispatch — without this they race to upload index.json
+# to the `index` release and the last writer is nondeterministic.
+# `index.py build` does a full rescan of every release each run, so a
+# newer run strictly supersedes an in-flight one: cancel-in-progress
+# coalesces the burst into one final, authoritative rebuild. (In a
+# reusable workflow `github.repository` is the CALLER's repo, so the
+# group is correctly per-catalog.)
+concurrency:
+  group: rebuild-index-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  rebuild:
+    runs-on: ${{ startsWith(inputs.runner, '[') && fromJSON(inputs.runner) || inputs.runner || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+    steps:
+      # Caller-repo checkout. Two reasons:
+      #   1. softprops/action-gh-release is friendlier when invoked from
+      #      inside the caller's checkout.
+      #   2. `index.py build` reads `./logos-repo.json` for the
+      #      `repositoryName` field (falling back to "unknown") — same
+      #      precedence the standalone CLI uses, so the workflow's index
+      #      header matches what a maintainer would produce locally.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      # Bring `lgx` onto PATH. `index.py` requires it for the
+      # verify/manifest/signature reads it does per package. Same
+      # install pattern as release.yml's release job: Nix reading the
+      # Logos cache (no tokens), then one `nix build` of the package flake.
+      - uses: ./.github/actions/setup-nix-cache # vendored, see .github/VENDORED.md
+      - name: Set up lgx CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          nix build github:logos-co/logos-package#lgx --out-link "$RUNNER_TEMP/lgx-tool"
+          echo "$RUNNER_TEMP/lgx-tool/bin" >> "$GITHUB_PATH"
+
+      # `index.py` lives in `logos-modules-release-tool`. Reusable
+      # workflows don't get an automatic checkout of any other repo,
+      # so we pull it explicitly and pin to `v1` (the same lockstep
+      # convention `release.yml` used to pin its own scripts). Advance
+      # both the v1 tag on the tool repo AND this rebuild-index.yml in
+      # lockstep when the schema changes.
+      #
+      # NOT made configurable on purpose — same rationale the previous
+      # in-tree builder had. An input would push version-coupling onto
+      # every consumer; the v1 line is kept correct by advancing tag +
+      # workflow together. v2 introduces its own rebuild-index.yml
+      # hardcoded to `ref: v2`.
+      - name: Checkout logos-modules-release-tool (for index.py)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: logos-co/logos-modules-release-tool
+          ref: v1.3
+          path: _tool
+
+      # Collect every published `.lgx` URL from the caller's releases.
+      # We deliberately exclude the rolling `index` release (it carries
+      # the catalog itself, not a module) and skip drafts (the index
+      # mustn't advertise an unpublished version).
+      #
+      # `--paginate` walks every page; `gh api` honours $GH_TOKEN
+      # automatically.
+      #
+      # Assets are read per release from `/releases/{id}/assets`, NOT
+      # from the inline `assets` array of the list endpoint. GitHub
+      # serves that inline array inconsistently for recently published
+      # releases (empty on most requests, populated on a few, for
+      # tens of minutes and across delete/re-create), which silently
+      # dropped new versions from the catalog. The per-release endpoint
+      # is consistent. It also returns stubs of failed uploads (state
+      # "starter"), which the inline array hides, so filter on
+      # state == "uploaded" or `index.py build` would 404 on them.
+      #
+      # The filters are byte-stable across re-runs (they rely only on
+      # draft + tag_name + state + name + browser_download_url, in list
+      # order), so a fresh rebuild over an unchanged release set
+      # produces an identical urls.txt.
+      #
+      # Expected output, one line per package:
+      #   logos:<network>:<cid> ... https://github.com/<repo>/releases/download/<tag>/<package>-<version>.lgx
+      # with one logos: source per network, or, when the release has no CID:
+      #   https://github.com/<repo>/releases/download/<tag>/<package>-<version>.lgx
+      - name: Collect `.lgx` URLs from this repo's releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > lgx.txt
+          gh api \
+            "repos/${{ github.repository }}/releases" --paginate \
+            --jq '
+              .[]
+              | select(.draft != true)
+              | select(.tag_name != "index")
+              | .id
+            ' |
+          while read -r release_id; do
+            gh api \
+              "repos/${{ github.repository }}/releases/${release_id}/assets" --paginate \
+              --jq '
+                .[]
+                | select(.state == "uploaded")
+                | select(.name | endswith(".lgx"))
+                | .browser_download_url
+              ' >> lgx.txt
+          done
+
+          # Loop over the Github assets to add the Storage link when
+          # the CID is available.
+          while read -r lgx_url; do
+            sidecar_url="${lgx_url%/*}/sidecar.json"
+
+            if ! sidecar=$(curl -fsSL "$sidecar_url"); then
+              echo "::warning::cannot read $sidecar_url, listing $lgx_url without a CID"
+              sidecar=""
+            fi
+
+            if [[ -n "$sidecar" ]]; then
+              cid=$(jq -r '.cid' <<<"$sidecar")
+
+              for network in $(jq -r '.networks // [] | .[]' <<<"$sidecar"); do
+                echo -n "logos:$network:$cid " >> urls.txt
+              done
+            fi
+
+            echo "$lgx_url" >> urls.txt
+          done < lgx.txt
+
+          echo "::notice::collected $(wc -l < urls.txt) .lgx URL(s) from releases"
+
+      - name: Build index.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          # --icons-dir "" writes icon sidecars BESIDE index.json rather than
+          # into an icons/ subdirectory. Release assets are a flat namespace —
+          # a slash is not valid in an asset name — so the flat layout is what
+          # this transport requires. `icon.path` in the index is resolved
+          # relative to the index URL, so clients need no special handling.
+          python3 _tool/index.py build urls.txt -o index.json --icons-dir ""
+          # Small at-a-glance summary in the workflow log.
+          jq '{ schemaVersion, repositoryName, packageCount: (.packages | length) }' index.json
+          # find, not `ls | wc -l`: shellcheck SC2012/SC2035, and the
+          # ./ prefix keeps a filename that starts with a dash from being
+          # read as an option.
+          echo "icon sidecars: $(find . -maxdepth 1 -name '*.png' | wc -l)"
+
+      - name: Replace the `index` release asset
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: index
+          name:     Catalog index (auto-updated)
+          body:     "Auto-generated index of every per-module release in this repository."
+          # Icons are content-addressed (<sha256>.png), so re-uploading an
+          # unchanged one is byte-identical and the action replaces in place.
+          # A glob is used rather than a list because the set changes as
+          # modules publish or update artwork.
+          files: |
+            index.json
+            *.png
+          # `softprops/action-gh-release` updates existing releases with the
+          # same tag, replacing assets in-place. No manual delete needed.
