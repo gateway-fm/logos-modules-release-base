@@ -21,4 +21,4 @@ permissions:
 
 jobs:
   rebuild:
-    uses: logos-co/logos-modules-release-action/.github/workflows/rebuild-index.yml@v1
+    uses: gateway-fm/logos-modules-release-action/.github/workflows/rebuild-index.yml@f7014156f8c48c0088eb504ef9cfb635a81a4aa6 # v1 + pinned actions
