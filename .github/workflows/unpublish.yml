@@ -9,7 +9,8 @@ name: Unpublish module / version
 # see exactly which releases match. The rolling `index` release is
 # hard-guarded against deletion by the action.
 #
-# Thin wrapper — the actual logic lives in the versioned action.
+# Thin wrapper — the actual logic lives in the vendored workflow
+# (_logos-unpublish.yml, see .github/VENDORED.md).
 
 on:
   workflow_dispatch:
@@ -39,7 +40,7 @@ permissions:
 
 jobs:
   unpublish:
-    uses: gateway-fm/logos-modules-release-action/.github/workflows/unpublish.yml@f7014156f8c48c0088eb504ef9cfb635a81a4aa6 # v1 + pinned actions
+    uses: ./.github/workflows/_logos-unpublish.yml # vendored, see .github/VENDORED.md
     with:
       module:      ${{ inputs.module }}
       version:     ${{ inputs.version }}

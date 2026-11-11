@@ -53,7 +53,7 @@ permissions:
 
 jobs:
   release:
-    uses: gateway-fm/logos-modules-release-action/.github/workflows/release.yml@f7014156f8c48c0088eb504ef9cfb635a81a4aa6 # v1 + pinned actions
+    uses: ./.github/workflows/_logos-release.yml # vendored, see .github/VENDORED.md
     with:
       module_path: ${{ inputs.module_path }}
 
