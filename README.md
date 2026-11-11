@@ -8,7 +8,7 @@ apps of [gateway-fm/lez-atomic-swaps](https://github.com/gateway-fm/lez-atomic-s
 Add it to Basecamp (Settings → Repositories) with this catalog URL:
 
 ```
-https://raw.githubusercontent.com/mandrigin/logos-modules-release-base/main/logos-repo.json
+https://raw.githubusercontent.com/gateway-fm/logos-modules-release-base/main/logos-repo.json
 ```
 
 Both apps live in one submodule (`submodules/lez-atomic-swaps`, under

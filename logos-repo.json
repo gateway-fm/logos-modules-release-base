@@ -4,6 +4,6 @@
   "displayName": "LEZ Atomic Swaps",
   "description": "Maker and Taker Basecamp apps for native BTC/LEZ atomic swaps (gateway-fm/lez-atomic-swaps).",
   "homepage": "https://github.com/gateway-fm/lez-atomic-swaps",
-  "indexUrl": "https://github.com/mandrigin/logos-modules-release-base/releases/download/index/index.json",
+  "indexUrl": "https://github.com/gateway-fm/logos-modules-release-base/releases/download/index/index.json",
   "trustedSigners": []
 }
