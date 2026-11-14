@@ -1,9 +1,11 @@
 # LEZ Atomic Swaps — Logos module catalog
 
-This fork of `logos-co/logos-modules-release-base` publishes the two Basecamp
-apps of [gateway-fm/lez-atomic-swaps](https://github.com/gateway-fm/lez-atomic-swaps):
-**LEZ / BTC Maker** (`lez_atomic_swap_maker`) and **LEZ / BTC Taker**
-(`lez_atomic_swap_taker`).
+This fork of `logos-co/logos-modules-release-base` publishes the Logos
+packages of [gateway-fm/lez-atomic-swaps](https://github.com/gateway-fm/lez-atomic-swaps):
+the Basecamp apps **LEZ / BTC Maker** (`lez_atomic_swap_maker`) and
+**LEZ / BTC Taker** (`lez_atomic_swap_taker`) and, from v0.3.1, the packages
+they and the LEZ network desk install. *Published packages and variants*
+below lists each package and the platforms it ships for.
 
 Add it to Basecamp (Settings → Repositories) with this catalog URL:
 
@@ -26,6 +28,38 @@ git add submodules/lez-atomic-swaps && git commit -m "lez-atomic-swaps v0.2.1" &
 ```
 
 Releases are unsigned (`trustedSigners` is empty); see *Signing* below.
+
+## Published packages and variants
+
+Each release carries one `.lgx` that holds every variant of that package.
+The v0.3.1 set:
+
+| Package | Release | `darwin-arm64` | `linux-amd64` | `linux-arm64` |
+|---|---|:-:|:-:|:-:|
+| `lez_atomic_swap_maker` | `lez_atomic_swap_maker-v0.3.1` | yes | yes | yes |
+| `lez_atomic_swap_taker` | `lez_atomic_swap_taker-v0.3.1` | yes | yes | yes |
+| `lez_swap_node` | `lez_swap_node-v0.3.1` | yes | yes | yes |
+| `lez_maker_node` | `lez_maker_node-v0.3.1` | yes | yes | yes |
+| `lez_taker_node` | `lez_taker_node-v0.3.1` | yes | yes | yes |
+| `lez_core` | `lez_core-v0.4.1-sign.4` | yes | yes | yes |
+| `lez_network` | `lez_network-v0.3.1` | no | yes | yes |
+| `lez_indexer_module` | `lez_indexer_module-v1.1.1-rpc.4` | no | yes | yes |
+
+`lez_network` (the LEZ network's operator desk) and `lez_indexer_module`
+are Linux-only. The earlier desk releases, `lez_atomic_swap_maker` and
+`lez_atomic_swap_taker` v0.2.1 to v0.2.5, carry `darwin-arm64`,
+`linux-amd64` and `linux-arm64`. No package in this catalog has a Windows
+variant.
+
+On an x86_64 Linux host the client reports its platform as
+`linux-x86_64` and installs the `linux-amd64` variant (logosctl 0.3.2).
+The v0.3.1 macOS executables are signed ad hoc, not with a Developer ID, and are
+not notarised.
+
+The v0.3.1 packages are built and merged by the `release-packages.yml`
+workflow of gateway-fm/lez-atomic-swaps and attached to these releases;
+this catalog's own release workflow builds only the two desk modules in
+`modules.txt`.
 
 ---
 
@@ -177,25 +211,24 @@ in `logos-repo.json` so clients trust your signature.
 
 ## Variants
 
-This catalog publishes four variants:
+What this catalog actually ships, per package, is in *Published packages
+and variants* at the top of this file.
+
+The release workflow builds the variants named on the `variants:` line of
+`_release-module.yml`. In this catalog that line is
+`darwin-arm64,linux-amd64,linux-arm64`:
 
 | Variant | Runner | Built from |
 |---|---|---|
 | `darwin-arm64` | `macos-latest` | native |
 | `linux-amd64` | `ubuntu-latest` | native |
 | `linux-arm64` | `ubuntu-24.04-arm` | native |
-| `windows-x86_64` | `ubuntu-latest` | mingw cross |
 
-Windows is the odd one: it is **cross-compiled**, so a Linux runner
-produces the PE, and only a module whose flake exposes
-`packages.x86_64-windows` has anything to build there. A module that
-never opted into the Windows target fails that one leg and still ships
-the other three as a partial release — the sidecar records which in
+The upstream template also offers `windows-x86_64`, cross-compiled with
+mingw on a Linux runner for a module whose flake exposes
+`packages.x86_64-windows`; this catalog does not build it. A release that
+ships fewer variants than requested records which in its sidecar's
 `builtVariants` / `missingVariants`.
-
-Drop `windows-x86_64` from the `variants:` line in
-`_release-module.yml` if you'd rather not see a red leg on modules that
-don't support it.
 
 ## Pinning the action version
 
