@@ -27,7 +27,51 @@ git add submodules/lez-atomic-swaps && git commit -m "lez-atomic-swaps v0.2.1" &
 ./scripts/catalog.sh release-all --watch
 ```
 
-Releases are unsigned (`trustedSigners` is empty); see *Signing* below.
+The v0.3.1 packages are signed; see *Package signatures* below.
+
+## Package signatures
+
+The eight v0.3.1 packages (the table below) are signed with one Ed25519
+key. Its identity, also listed under `trustedSigners` in `logos-repo.json`:
+
+```
+did:jwk:eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6Ik42REI2QWlOOTJZSnRzMDdLa1NfV3k5MGVqWnp4QlNTWjdPQ2FHZEd4aEkifQ
+```
+
+A signature covers the package's `manifest.json`, and the manifest's
+`hashes` cover every file in the package, so a changed file or a changed
+manifest no longer verifies. Check a downloaded package with `lgx`
+(logos-package):
+
+```sh
+lgx verify lez_atomic_swap_maker-0.3.1.lgx
+```
+
+It prints `Signature is valid` and the signer DID above. To trust the key,
+add it to your keyring once:
+
+```sh
+lgx keyring add lez-atomic-swaps did:jwk:eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6Ik42REI2QWlOOTJZSnRzMDdLa1NfV3k5MGVqWnp4QlNTWjdPQ2FHZEd4aEkifQ
+logosctl key add lez-atomic-swaps --did did:jwk:eyJjcnYiOiJFZDI1NTE5Iiwia3R5IjoiT0tQIiwieCI6Ik42REI2QWlOOTJZSnRzMDdLa1NfV3k5MGVqWnp4QlNTWjdPQ2FHZEd4aEkifQ
+```
+
+`lgx keyring` writes `~/.config/logos/trusted-keys/`; logosctl 0.3.2 keeps
+its own keyring in its session directory (`<config-dir>/keyring`), so add
+the key with `logosctl key add` for logosctl. Without the key in the
+keyring, logosctl 0.3.2 installs a package and logs
+`Warning: Package is signed by a key no trusted anchor validates`, with the
+signer DID; with it, the install logs no warning. A package whose signature
+does not verify is refused (`Invalid signature: Ed25519 signature
+verification failed`).
+
+`trustedSigners` is advisory in logosctl and Basecamp 0.3.2: both read the
+field, neither trusts a key because it is listed there. Only the local
+keyring decides whether a signer is trusted.
+
+Basecamp 0.3.2 still words its install prompt as “unsigned” for every
+third-party package (“not part of Logos, and unsigned, so the shell cannot
+confirm who published it”), so it shows that text for these signed
+packages too, with or without the key in the keyring.
 
 ## Published packages and variants
 
@@ -207,7 +251,12 @@ at the top of
 | `external` | your `signing_command` | anywhere (Jenkins / HSM / hardware token) |
 
 For `inline`, also put the matching public DID under `trustedSigners`
-in `logos-repo.json` so clients trust your signature.
+in `logos-repo.json`; logosctl and Basecamp 0.3.2 treat that list as
+advisory (see *Package signatures*).
+
+The release workflows here still run with `none`. The eight v0.3.1
+packages were signed with `lgx sign` after their release builds, and the
+signed files replaced the release assets.
 
 ## Variants
 
