@@ -27,11 +27,11 @@ git add submodules/lez-atomic-swaps && git commit -m "lez-atomic-swaps v0.2.1" &
 ./scripts/catalog.sh release-all --watch
 ```
 
-The v0.3.1 packages are signed; see *Package signatures* below.
+The packages from v0.3.1 on are signed; see *Package signatures* below.
 
 ## Package signatures
 
-The eight v0.3.1 packages (the table below) are signed with one Ed25519
+The packages from v0.3.1 on (the table below) are signed with one Ed25519
 key. Its identity, also listed under `trustedSigners` in `logos-repo.json`:
 
 ```
@@ -44,7 +44,7 @@ manifest no longer verifies. Check a downloaded package with `lgx`
 (logos-package):
 
 ```sh
-lgx verify lez_atomic_swap_maker-0.3.1.lgx
+lgx verify lez_atomic_swap_maker-0.3.2.lgx
 ```
 
 It prints `Signature is valid` and the signer DID above. To trust the key,
@@ -76,32 +76,39 @@ packages too, with or without the key in the keyring.
 ## Published packages and variants
 
 Each release carries one `.lgx` that holds every variant of that package.
-The v0.3.1 set:
+The v0.3.2 set:
 
 | Package | Release | `darwin-arm64` | `linux-amd64` | `linux-arm64` |
 |---|---|:-:|:-:|:-:|
-| `lez_atomic_swap_maker` | `lez_atomic_swap_maker-v0.3.1` | yes | yes | yes |
-| `lez_atomic_swap_taker` | `lez_atomic_swap_taker-v0.3.1` | yes | yes | yes |
-| `lez_swap_node` | `lez_swap_node-v0.3.1` | yes | yes | yes |
-| `lez_maker_node` | `lez_maker_node-v0.3.1` | yes | yes | yes |
-| `lez_taker_node` | `lez_taker_node-v0.3.1` | yes | yes | yes |
+| `lez_atomic_swap_maker` | `lez_atomic_swap_maker-v0.3.2` | yes | yes | yes |
+| `lez_atomic_swap_taker` | `lez_atomic_swap_taker-v0.3.2` | yes | yes | yes |
+| `lez_swap_node` | `lez_swap_node-v0.3.2` | yes | yes | yes |
+| `lez_maker_node` | `lez_maker_node-v0.3.2` | yes | yes | yes |
+| `lez_taker_node` | `lez_taker_node-v0.3.2` | yes | yes | yes |
 | `lez_core` | `lez_core-v0.4.1-sign.4` | yes | yes | yes |
-| `lez_network` | `lez_network-v0.3.1` | no | yes | yes |
+| `chat_module` | `chat_module-v0.2.2-delivery.1` | yes | yes | yes |
+| `lez_network` | `lez_network-v0.3.2` | no | yes | yes |
 | `lez_indexer_module` | `lez_indexer_module-v1.1.1-rpc.4` | no | yes | yes |
 
 `lez_network` (the LEZ network's operator desk) and `lez_indexer_module`
-are Linux-only. The earlier desk releases, `lez_atomic_swap_maker` and
+are Linux-only. `chat_module` 0.2.2-delivery.1 is the official `chat_module`
+0.2.2 with its files unchanged and a manifest that requires
+`delivery_module` ~0.2.0; the 0.3.2 desks pin it, so one install of a desk
+by name gives a desk that Basecamp opens. The desks do not coexist with the
+official `chat_ui` 0.3.0, which needs `delivery_module` 0.3.x. The v0.3.1
+releases of the six packages above stay published. The earlier desk releases, `lez_atomic_swap_maker` and
 `lez_atomic_swap_taker` v0.2.1 to v0.2.5, carry `darwin-arm64`,
 `linux-amd64` and `linux-arm64`. No package in this catalog has a Windows
 variant.
 
 On an x86_64 Linux host the client reports its platform as
 `linux-x86_64` and installs the `linux-amd64` variant (logosctl 0.3.2).
-The v0.3.1 macOS executables are signed ad hoc, not with a Developer ID, and are
+The macOS executables are signed ad hoc, not with a Developer ID, and are
 not notarised.
 
-The v0.3.1 packages are built and merged by the `release-packages.yml`
-workflow of gateway-fm/lez-atomic-swaps and attached to these releases;
+The packages are built by the `release-packages.yml` workflow of
+gateway-fm/lez-atomic-swaps (the macOS variant on an Apple silicon host
+with the same steps), merged, signed and attached to these releases;
 this catalog's own release workflow builds only the two desk modules in
 `modules.txt`.
 
@@ -254,9 +261,8 @@ For `inline`, also put the matching public DID under `trustedSigners`
 in `logos-repo.json`; logosctl and Basecamp 0.3.2 treat that list as
 advisory (see *Package signatures*).
 
-The release workflows here still run with `none`. The eight v0.3.1
-packages were signed with `lgx sign` after their release builds, and the
-signed files replaced the release assets.
+The release workflows here still run with `none`. The packages
+from v0.3.1 on are signed with `lgx sign` after their release builds.
 
 ## Variants
 
